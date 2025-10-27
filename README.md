@@ -61,4 +61,75 @@ AKG yang disertakan:
 ---
 
 ## 🗂️ Struktur Proyek (minimal)
+fct-tkpi/
+├─ app.py # aplikasi Streamlit
+├─ requirements.txt
+├─ TKPI 2017.xlsx # database default (opsional; <100MB)
+├─ sample_yield_factors.csv # contoh faktor yield (opsional)
+├─ sample_retention_factors.csv# contoh faktor retensi (opsional)
+└─ README.md
 
+
+> **Catatan:** untuk file besar, lebih baik **diunggah dari UI** ketimbang dipush ke GitHub.
+
+---
+
+## ⚙️ Instalasi Lokal
+
+```bash
+# 1) siapkan environment
+python -m venv venv
+# Windows:
+venv\Scripts\activate
+# macOS/Linux:
+source venv/bin/activate
+
+# 2) install dependency
+pip install -r requirements.txt
+
+# 3) jalankan aplikasi
+streamlit run app.py
+
+☁️ Deploy ke Streamlit Community Cloud
+
+Push proyek ini ke GitHub (repo publik).
+
+Masuk ke https://share.streamlit.io/
+
+New app → pilih repo, branch, dan file app.py.
+
+Klik Deploy. Selesai ✅
+
+🧑‍💻 Cara Pakai (ringkas)
+
+Pilih sumber TKPI (default 2017 atau upload).
+
+Cek “⚙️ Kolom TKPI (mapping)” → samakan nama kolom dengan header dataset Anda.
+
+Tambah Menu → Tambah Bahan ke Menu → pilih bahan TKPI, berat (g/kg), metode masak.
+
+Lihat hasil Per Bahan & Per Menu.
+
+Buka Analisis AKG:
+
+“Dari Per Menu” (default: jumlah semua menu bila tidak dipilih), atau
+
+“Input manual” kalau mau mengetik asupan sendiri.
+
+Unduh Excel yang berisi semua hasil perhitungan.
+
+📚 Rujukan
+
+TKPI 2017 – Direktorat Gizi, Kementerian Kesehatan RI.
+
+USDA Table of Nutrient Retention Factors (Release 6, 2007).
+
+USDA FoodData Central / FNDDS – Cooking Yields.
+
+FAO/INFOODS Guidelines – Food matching & documentation standards.
+❤️ Kredit
+
+Create with love by dedik2urniawan@gmail.com
+
+Part of Tindik Anting Analysis
+.
