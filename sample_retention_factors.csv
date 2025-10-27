@@ -1,0 +1,27 @@
+Metode,Nutrien,Retensi
+segar,ALL,1.0
+direbus,PROTEIN,0.98
+direbus,SERAT,0.95
+direbus,VIT A RE,0.9
+direbus,VIT RAE,0.9
+direbus,VIT_C,0.6
+direbus,ZAT BESI,0.98
+direbus,SENG,0.98
+direbus,KALSIUM,0.98
+direbus,KALIUM,0.9
+tumis,PROTEIN,0.97
+tumis,SERAT,0.95
+tumis,VIT A RE,0.9
+tumis,VIT RAE,0.9
+tumis,VIT_C,0.7
+tumis,KALIUM,0.95
+digoreng,PROTEIN,0.95
+digoreng,SERAT,0.9
+digoreng,VIT A RE,0.85
+digoreng,VIT RAE,0.85
+digoreng,VIT_C,0.65
+panggang,PROTEIN,0.97
+panggang,SERAT,0.95
+panggang,VIT A RE,0.88
+panggang,VIT RAE,0.88
+panggang,VIT_C,0.7
