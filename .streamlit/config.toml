@@ -1,0 +1,18 @@
+# ====================== Streamlit Config (Professional Theme) ======================
+[server]
+headless = true
+enableStaticServing = true
+runOnSave = true
+
+[theme]
+# Base dapat "light" atau "dark"
+base = "light"
+primaryColor = "#2563EB"            # Indigo-600 (tegas, profesional)
+backgroundColor = "#F8FAFC"         # Slate-50
+secondaryBackgroundColor = "#EEF2FF" # Indigo-50 lembut untuk panel/expander
+textColor = "#0F172A"               # Slate-900
+font = "sans serif"                 # default: clean UI
+
+# (Opsional) Toolbar cache/CTA, cocok untuk publik
+[client]
+toolbarMode = "minimal"
