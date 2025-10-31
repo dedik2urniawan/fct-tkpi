@@ -7,6 +7,7 @@ import pandas as pd
 import streamlit as st
 import plotly.graph_objects as go
 
+
 st.set_page_config(page_title="FCT – TKPI + AKG", page_icon="🥗", layout="wide")
 
 # =========================
@@ -259,6 +260,7 @@ st.caption("Hitung komposisi gizi per bahan & per menu (BDD, yield, retensi) dan
 
 # Help expander (with blue background + LaTeX)
 with st.expander("📘 Petunjuk & Metodologi (klik untuk lihat)", expanded=st.session_state.get("show_help", False)):
+    # Header card (biru lembut)
     st.markdown(
         """
         <div style="
@@ -275,15 +277,22 @@ with st.expander("📘 Petunjuk & Metodologi (klik untuk lihat)", expanded=st.se
         """,
         unsafe_allow_html=True
     )
+
+    # Rumus inti (tetap seperti versi yang kamu suka)
     st.markdown("**Langkah koreksi untuk setiap bahan:**")
     st.markdown("**1️⃣ BDD (Edible Portion)**")
     st.latex(r"w_{\mathrm{edible}} = w_{\mathrm{input}} \times \frac{\mathrm{BDD}\,(\%)}{100}")
+
     st.markdown("**2️⃣ Yield (Perubahan berat setelah pemasakan)**")
     st.latex(r"w_{\mathrm{final}} = w_{\mathrm{edible}} \times \mathrm{Yield}\!\left(\text{metode}\right)")
+
     st.markdown("**3️⃣ Retensi Nutrien (Degradasi karena proses pemasakan)**")
     st.latex(r"N_{\mathrm{akhir}} = \left(\frac{N_{100}}{100}\right) \times w_{\mathrm{final}} \times \mathrm{Retensi}_{N}\!\left(\text{metode}\right)")
+
     st.markdown("**4️⃣ Agregasi per Menu**")
     st.latex(r"N_{\mathrm{menu}} = \sum_{i=1}^{k} N_{\mathrm{akhir},\,i}")
+
+    # Catatan ilmiah
     st.markdown(
         """
         <div style="
@@ -292,12 +301,39 @@ with st.expander("📘 Petunjuk & Metodologi (klik untuk lihat)", expanded=st.se
             border-left:4px solid #2c80ff;
             margin-top:0.8rem;
         ">
-        <b>Catatan ilmiah:</b> Vitamin (Vit C, provitamin A) lebih labil terhadap panas/oksidasi dibanding mineral atau makronutrien. 
+        <b>Catatan ilmiah:</b> Vitamin (Vit C, provitamin A) lebih labil terhadap panas/oksidasi dibanding mineral atau makronutrien.
         Faktor <i>yield</i> dan <i>retensi</i> dapat disesuaikan menurut tabel referensi (USDA Retention Factors, FNDDS Cooking Yields, FAO/INFOODS).
         </div>
         """,
         unsafe_allow_html=True
     )
+
+    # Garis pemisah
+    st.markdown("<hr style='border:none;border-top:1px solid #e5e7eb;margin:1rem 0;'>", unsafe_allow_html=True)
+
+    # 🧭 Alur pengisian (step-by-step)
+    st.markdown(
+        """
+### 🧭 Alur Pengisian Aplikasi (Step-by-step)
+1. **Pilih database TKPI**  
+   - Pakai **TKPI 2017** (default), atau unggah file **XLSX/CSV** versi terbaru.  
+   - Jika header file berbeda, buka **⚙️ Kolom TKPI (Mapping)** dan samakan nama kolom.
+2. **Tambahkan Menu** *(misal: “Capcay”)*.
+3. **Tambah Bahan ke Menu**  
+   - Cari bahan dari basis TKPI → tentukan **berat** (g atau kg) → pilih **metode masak** (segar/rebus/tumis/goreng/dst).  
+   - Sistem menghitung **BDD → Yield → Retensi**, menghasilkan **Per Bahan** & **Per Menu**.
+4. **Tinjau Hasil**  
+   - Tabel **Per Bahan** untuk jejak perhitungan; **Per Menu** untuk total akhir per porsi/menu.
+5. **Analisis AKG**  
+   - Pilih **Dari Per Menu** (default: **menjumlah semua menu** kalau tidak dipilih apa pun) atau **Input manual**.  
+   - Lihat **% Pencapaian AKG** + grafik **Bar** & **Radar**.
+6. **Unduh Excel**  
+   - Berisi: input mentah, Per Bahan, Per Menu, faktor yield/retensi, referensi AKG, asupan, dan pencapaian AKG.
+
+**Referensi**: TKPI 2017 (Kemenkes RI); USDA *Table of Nutrient Retention Factors*; USDA FNDDS *Cooking Yields*; FAO/INFOODS guidelines.
+        """
+    )
+
 
 # Inisialisasi state
 if "menus" not in st.session_state:
@@ -585,7 +621,7 @@ with colA:
     row = df_akg_pct[df_akg_pct["Kelompok"]==target_group].iloc[0]
     labels = [c.replace("% ","") for c in row.index if c.startswith("% ")]
     vals = [row[f"% {c}"] for c in labels]
-
+    st.session_state["akg_target_group"] = target_group
     fig_bar = go.Figure()
     fig_bar.add_bar(x=labels, y=vals, name="Pencapaian (%)")
     # garis 100%
@@ -631,6 +667,156 @@ with colB:
         )
         st.plotly_chart(fig_rad, use_container_width=True)
 
+# ===================== 5B) ANALISIS OTOMATIS (GAP & RINGKASAN) =====================
+
+def _safe_get(sr, k, default=np.nan):
+    try:
+        return float(sr.get(k, default))
+    except Exception:
+        return default
+
+def compute_gap_series(asupan_dict, akg_row):
+    """
+    Parameters
+    ----------
+    asupan_dict : dict -> {nutrien: nilai_asupan}
+    akg_row     : pd.Series -> baris AKG rujukan utk 1 kelompok
+
+    Returns
+    -------
+    df_gap : DataFrame kolom [Target, Asupan, Pencapaian(%), Gap(Asupan-Target)]
+    """
+    # hanya nutrien yang muncul di keduanya (asupan & AKG)
+    keys = []
+    for k in akg_row.index:
+        if k.lower() in ["kelompok"]: 
+            continue
+        if (k in asupan_dict) or (k in asupan_dict.keys()) or (k in [*asupan_dict]):
+            keys.append(k)
+
+    rows = []
+    for k in keys:
+        tgt = _safe_get(akg_row, k, np.nan)
+        val = _safe_get(asupan_dict, k, np.nan)
+        if pd.isna(tgt) or tgt == 0:
+            pct = np.nan
+            gap = np.nan
+        else:
+            pct = (val / tgt) * 100.0
+            gap = val - tgt
+        rows.append({"Nutrien": k, "Target": tgt, "Asupan": val, "Pencapaian(%)": pct, "Gap": gap})
+    df = pd.DataFrame(rows)
+    return df
+
+def narrate_gap(df_gap, kelompok_label):
+    """
+    Buat narasi otomatis berbasis aturan sederhana: defisit <90%, memadai 90–120%, surplus >120%.
+    Prioritaskan makro terlebih dulu, lalu mikro (kalau ada pada AKG).
+    """
+    if df_gap.empty:
+        return "Data AKG atau asupan tidak tersedia untuk dianalisis."
+
+    # kategori
+    def_status = lambda p: ("Defisit" if p < 90 else ("Memadai" if p <= 120 else "Surplus")) if pd.notna(p) else "NA"
+
+    df = df_gap.copy()
+    df["Status"] = df["Pencapaian(%)"].apply(def_status)
+
+    # urutkan makro dulu
+    preferred_order = ["Energi","Protein","Lemak_total","Omega3","Omega6","Karbohidrat","Serat","Air"]
+    df["_ord"] = df["Nutrien"].apply(lambda x: preferred_order.index(x) if x in preferred_order else 999)
+    df = df.sort_values(["_ord","Nutrien"]).drop(columns=["_ord"])
+
+    # ringkasan per kategori
+    def _pick(df, status):
+        d = df[df["Status"]==status].copy()
+        # sort: paling bermasalah di atas (persen terjauh dari 100)
+        d["dev"] = (d["Pencapaian(%)"] - 100).abs()
+        return d.sort_values("dev", ascending=False).drop(columns=["dev"])
+
+    df_def = _pick(df, "Defisit")
+    df_sur = _pick(df, "Surplus")
+    df_ok  = _pick(df, "Memadai")
+
+    lines = []
+    lines.append(f"**Ringkasan otomatis – {kelompok_label}:**")
+    if not df_def.empty:
+        top = min(5, len(df_def))
+        items = [f"{r.Nutrien}: {r['Pencapaian(%)']:.1f}% (−{abs(r.Gap):.2f} dari target)" for _, r in df_def.head(top).iterrows()]
+        lines.append("• **Defisit** → " + "; ".join(items) + ".")
+    if not df_sur.empty:
+        top = min(5, len(df_sur))
+        items = [f"{r.Nutrien}: {r['Pencapaian(%)']:.1f}% (+{r.Gap:.2f} di atas target)" for _, r in df_sur.head(top).iterrows()]
+        lines.append("• **Surplus** → " + "; ".join(items) + ".")
+    if not df_ok.empty:
+        top = min(5, len(df_ok))
+        items = [f"{r.Nutrien}: {r['Pencapaian(%)']:.1f}%" for _, r in df_ok.head(top).iterrows()]
+        lines.append("• **Memadai** → " + "; ".join(items) + ".")
+
+    # rekomendasi sederhana berbasis makro
+    recs = []
+    # Energi
+    rowE = df[df["Nutrien"]=="Energi"]
+    if not rowE.empty and pd.notna(rowE["Pencapaian(%)"].iat[0]):
+        if rowE["Pencapaian(%)"].iat[0] < 90:
+            recs.append("Tingkatkan **Energi** (porsi/penambahan bahan kaya energi seperti minyak/karbohidrat kompleks).")
+        elif rowE["Pencapaian(%)"].iat[0] > 120:
+            recs.append("Pertimbangkan penyesuaian **Energi** (porsi atau frekuensi) agar tidak berlebihan.")
+    # Protein
+    rowP = df[df["Nutrien"]=="Protein"]
+    if not rowP.empty and pd.notna(rowP["Pencapaian(%)"].iat[0]):
+        if rowP["Pencapaian(%)"].iat[0] < 90:
+            recs.append("Prioritaskan **Protein berkualitas** (telur, ikan, ayam tanpa kulit, kacang-kacangan/tempe).")
+    # Serat
+    rowS = df[df["Nutrien"]=="Serat"]
+    if not rowS.empty and pd.notna(rowS["Pencapaian(%)"].iat[0]):
+        if rowS["Pencapaian(%)"].iat[0] < 90:
+            recs.append("Tambahkan **serat** (sayur berdaun, buah utuh, legum, serealia utuh).")
+    # Lemak & PUFA
+    rowL = df[df["Nutrien"]=="Lemak_total"]
+    rowO3 = df[df["Nutrien"]=="Omega3"]
+    rowO6 = df[df["Nutrien"]=="Omega6"]
+    if not rowL.empty and pd.notna(rowL["Pencapaian(%)"].iat[0]) and rowL["Pencapaian(%)"].iat[0] > 120:
+        recs.append("Pantau **Lemak_total**; gunakan teknik masak rendah minyak (rebus/panggang/air-fryer).")
+    if not rowO3.empty and pd.notna(rowO3["Pencapaian(%)"].iat[0]) and rowO3["Pencapaian(%)"].iat[0] < 90:
+        recs.append("Naikkan **Omega-3** (ikan berlemak, biji rami/chia, kenari).")
+
+    if recs:
+        lines.append("**Rekomendasi ringkas:** " + " ".join(recs))
+
+    return "\n".join(lines)
+
+# ==== jalankan jika AKG sudah dihitung ====
+try:
+    # ambil kelompok yg sedang ditampilkan di grafik batang (pakai var yang sama)
+    target_group = st.session_state.get("akg_target_group", None)
+except Exception:
+    target_group = None
+
+# Jika kamu punya variabel `target_group` saat plotting bar, simpan ke session_state:
+# st.session_state["akg_target_group"] = target_group
+
+# Kita pilih kelompok pertama jika tidak ada yang tersimpan:
+if not target_group:
+    target_group = ref_akg["Kelompok"].iloc[0]
+
+# ambil baris AKG rujukan
+akg_row = ref_akg[ref_akg["Kelompok"]==target_group].iloc[0]
+
+# buat df gap
+df_gap = compute_gap_series(asupan, akg_row)
+
+st.subheader("🔎 Analisis Otomatis – Gap & Rekomendasi")
+st.dataframe(
+    df_gap.assign(**{"Pencapaian(%)": df_gap["Pencapaian(%)"].round(1), "Gap": df_gap["Gap"].round(2)}),
+    use_container_width=True
+)
+
+# narasi AI-like (rule-based)
+narasi = narrate_gap(df_gap, target_group)
+st.markdown(narasi)
+st.code(narasi, language="markdown")
+
 # ---------- Download Excel ----------
 st.subheader("6) Unduh Excel")
 buffer = io.BytesIO()
@@ -664,6 +850,3 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
-
-
-
