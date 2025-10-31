@@ -350,10 +350,13 @@ if st.button("🧹 Reset semua menu & bahan"):
 
 # ---------- Menu CRUD ----------
 st.subheader("1) Kelola Menu")
-colm1, colm2 = st.columns([2,2])
-with colm1:
-    new_menu = st.text_input("Tambah menu baru", placeholder="mis. Capcay, Korean Wings, dst.")
-    if st.button("➕ Tambah Menu"):
+
+left, right = st.columns([2, 2])
+
+# ➕ Tambah menu (tetap terlihat)
+with left:
+    new_menu = st.text_input("Tambah menu baru", placeholder="mis. Capcay, Korean Wings, dst.", key="add_menu_name")
+    if st.button("➕ Tambah Menu", key="btn_add_menu"):
         if new_menu.strip():
             if new_menu.strip() not in st.session_state.menus:
                 st.session_state.menus.append(new_menu.strip())
@@ -362,30 +365,42 @@ with colm1:
                 st.warning("Menu sudah ada.")
         else:
             st.warning("Nama menu tidak boleh kosong.")
-with colm2:
-    if st.session_state.menus:
-        sel_menu_manage = st.selectbox("Pilih menu untuk Edit/Hapus", st.session_state.menus, key="sel_menu_manage")
-        new_name = st.text_input("Rename menu", value=sel_menu_manage)
-        c1, c2 = st.columns(2)
-        with c1:
-            if st.button("✏️ Simpan Rename"):
-                old = sel_menu_manage
-                new = new_name.strip()
-                if new and new != old:
-                    st.session_state.menus = [new if m==old else m for m in st.session_state.menus]
-                    for r in st.session_state.rows:
-                        if r["Nama Menu"]==old:
-                            r["Nama Menu"] = new
-                    st.success(f"Menu '{old}' diubah menjadi '{new}'.")
-        with c2:
-            if st.button("🗑️ Hapus Menu"):
-                to_del = sel_menu_manage
-                st.session_state.menus = [m for m in st.session_state.menus if m!=to_del]
-                st.session_state.rows = [r for r in st.session_state.rows if r["Nama Menu"]!=to_del]
-                st.success(f"Menu '{to_del}' dihapus.")
+
+# ✏️🗑️ Edit/Hapus menu → disembunyikan dalam expander
+with right:
+    with st.expander("✏️ / 🗑️ Edit & Hapus Menu", expanded=False):
+        if st.session_state.menus:
+            sel_menu_manage = st.selectbox(
+                "Pilih menu untuk Edit/Hapus",
+                st.session_state.menus,
+                key="sel_menu_manage"
+            )
+            new_name = st.text_input("Rename menu", value=sel_menu_manage, key="rename_menu_name")
+            c1, c2 = st.columns(2)
+            with c1:
+                if st.button("✏️ Simpan Rename", key="btn_save_rename"):
+                    old = sel_menu_manage
+                    new = new_name.strip()
+                    if new and new != old:
+                        st.session_state.menus = [new if m == old else m for m in st.session_state.menus]
+                        for r in st.session_state.rows:
+                            if r["Nama Menu"] == old:
+                                r["Nama Menu"] = new
+                        st.success(f"Menu '{old}' diubah menjadi '{new}'.")
+                    else:
+                        st.info("Tidak ada perubahan nama.")
+            with c2:
+                if st.button("🗑️ Hapus Menu", key="btn_delete_menu"):
+                    to_del = sel_menu_manage
+                    st.session_state.menus = [m for m in st.session_state.menus if m != to_del]
+                    st.session_state.rows = [r for r in st.session_state.rows if r["Nama Menu"] != to_del]
+                    st.success(f"Menu '{to_del}' dihapus.")
+        else:
+            st.info("Belum ada menu. Tambahkan menu baru terlebih dahulu.")
 
 if not st.session_state.menus:
     st.stop()
+
 
 # ---------- Add Bahan ----------
 st.subheader("2) Tambahkan Bahan ke Menu")
@@ -413,39 +428,80 @@ if st.button("➕ Tambah Bahan ke Menu"):
 
 # ---------- Tabel Bahan + Edit/Delete ----------
 st.subheader("3) Tabel Bahan per Menu")
+
 if st.session_state.rows:
     df_input = pd.DataFrame(st.session_state.rows)
     st.dataframe(df_input, use_container_width=True)
 
-    st.markdown("**Edit / Hapus baris bahan**")
-    sel_idx = st.number_input("Pilih index baris untuk Edit/Hapus", min_value=0, max_value=len(df_input)-1, value=0, step=1)
-    row_cur = df_input.iloc[int(sel_idx)]
-    ec1, ec2, ec3, ec4, ec5 = st.columns([2,3,2,2,2])
-    with ec1:
-        e_menu = st.selectbox("Menu (edit)", st.session_state.menus, index=st.session_state.menus.index(row_cur["Nama Menu"]))
-    with ec2:
-        e_ing = st.selectbox("Bahan (edit)", ingredients_list, index=ingredients_list.index(row_cur["Bahan"]))
-    with ec3:
-        e_w = st.number_input("Berat (edit)", min_value=0.0, value=float(row_cur["Berat Input"]), step=10.0)
-    with ec4:
-        e_unit = st.selectbox("Unit (edit)", ["g","kg"], index=["g","kg"].index(row_cur["Unit"]))
-    with ec5:
-        e_method = st.selectbox("Metode (edit)", ["segar","direbus","tumis","digoreng","panggang"],
-                                index=["segar","direbus","tumis","digoreng","panggang"].index(row_cur["Metode"]))
-    cc1, cc2 = st.columns(2)
-    with cc1:
-        if st.button("💾 Simpan Perubahan"):
-            st.session_state.rows[int(sel_idx)] = {
-                "Nama Menu": e_menu, "Bahan": e_ing, "Berat Input": e_w, "Unit": e_unit, "Metode": e_method
-            }
-            st.success("Baris diperbarui.")
-    with cc2:
-        if st.button("🗑️ Hapus Baris"):
-            del st.session_state.rows[int(sel_idx)]
-            st.success("Baris dihapus.")
+    # ✏️🗑️ Edit/Hapus baris bahan → expander agar tidak memenuhi layar
+    with st.expander("✏️ / 🗑️ Edit & Hapus Baris Bahan", expanded=False):
+        # Lebih ramah: pilih baris via selectbox berlabel (idx — menu — bahan)
+        options = [f"{i} — {r['Nama Menu']} — {r['Bahan']}" for i, r in df_input.iterrows()]
+        sel_label = st.selectbox(
+            "Pilih baris untuk Edit/Hapus",
+            options,
+            key="sel_row_edit"
+        )
+        sel_idx = int(sel_label.split(" — ")[0])
+        row_cur = df_input.iloc[sel_idx]
+
+        ec1, ec2, ec3, ec4, ec5 = st.columns([2, 3, 2, 2, 2])
+        with ec1:
+            e_menu = st.selectbox(
+                "Menu (edit)",
+                st.session_state.menus,
+                index=st.session_state.menus.index(row_cur["Nama Menu"]),
+                key="edit_menu_select"
+            )
+        with ec2:
+            e_ing = st.selectbox(
+                "Bahan (edit)",
+                ingredients_list,
+                index=ingredients_list.index(row_cur["Bahan"]),
+                key="edit_ing_select"
+            )
+        with ec3:
+            e_w = st.number_input(
+                "Berat (edit)",
+                min_value=0.0,
+                value=float(row_cur["Berat Input"]),
+                step=10.0,
+                key="edit_weight_input"
+            )
+        with ec4:
+            e_unit = st.selectbox(
+                "Unit (edit)",
+                ["g", "kg"],
+                index=["g", "kg"].index(row_cur["Unit"]),
+                key="edit_unit_select"
+            )
+        with ec5:
+            e_method = st.selectbox(
+                "Metode (edit)",
+                ["segar", "direbus", "tumis", "digoreng", "panggang"],
+                index=["segar", "direbus", "tumis", "digoreng", "panggang"].index(row_cur["Metode"]),
+                key="edit_method_select"
+            )
+
+        cc1, cc2 = st.columns(2)
+        with cc1:
+            if st.button("💾 Simpan Perubahan", key="btn_save_row"):
+                st.session_state.rows[sel_idx] = {
+                    "Nama Menu": e_menu,
+                    "Bahan": e_ing,
+                    "Berat Input": e_w,
+                    "Unit": e_unit,
+                    "Metode": e_method
+                }
+                st.success("Baris diperbarui.")
+        with cc2:
+            if st.button("🗑️ Hapus Baris", key="btn_delete_row"):
+                del st.session_state.rows[sel_idx]
+                st.success("Baris dihapus.")
 else:
     st.info("Belum ada bahan. Tambahkan bahan terlebih dahulu.")
     st.stop()
+
 
 # ---------- Perhitungan ----------
 st.subheader("4) Hitung Komposisi (Per Bahan & Per Menu)")
