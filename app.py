@@ -1,11 +1,23 @@
+# ======== IMPORTS ========
 import io
 import math
 from pathlib import Path
 from typing import List, Tuple
+
 import numpy as np
 import pandas as pd
 import streamlit as st
-import plotly.graph_objects as go
+
+# --- Plotly: guard + auto-install jika belum ada (Cloud kadang skip requirements) ---
+try:
+    import plotly.graph_objects as go
+except ModuleNotFoundError:
+    st.warning("Setup awal: menginstal Plotly di server… (1x saja)")
+    import sys, subprocess
+    # Versi stabil & kompatibel
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "plotly==5.24.1", "tenacity==8.2.3"])
+    import plotly.graph_objects as go
+
 
 st.set_page_config(page_title="FCT – TKPI + AKG", page_icon="🥗", layout="wide")
 
@@ -664,4 +676,5 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
