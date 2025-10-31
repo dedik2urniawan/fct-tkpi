@@ -2,12 +2,10 @@ import io
 import math
 from pathlib import Path
 from typing import List, Tuple
-import plotly.graph_objects as go
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 import streamlit as st
-from math import pi
+import plotly.graph_objects as go
 
 st.set_page_config(page_title="FCT – TKPI + AKG", page_icon="🥗", layout="wide")
 
@@ -666,3 +664,4 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
